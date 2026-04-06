@@ -18,13 +18,13 @@ ocr:
   confidence_threshold: 0.5
 
 llm:
-  backend: "ollama"
-  model: "phi3:mini"
+  backend: "huggingface"
+  model: "Qwen/Qwen2.5-72B-Instruct"
   base_url: "http://localhost:11434"
   api_key: null
   max_tokens: 512
   temperature: 0.3
-  timeout_seconds: 10
+  timeout_seconds: 30
   retry_attempts: 3
   prompt_template: |
     You are an intelligent assistant.

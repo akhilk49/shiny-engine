@@ -1,14 +1,11 @@
-"""LLM Engine — sends prompts to Ollama or OpenAI backends with retry logic."""
+"""LLM Engine — sends prompts to Ollama, OpenAI, or HuggingFace backends."""
 
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Iterator
+from typing import Iterator
 
 from src.models import LLMConfig, LLMUnavailableError, ProcessedText
-
-if TYPE_CHECKING:
-    pass
 
 
 class LLMEngine:
@@ -16,16 +13,15 @@ class LLMEngine:
 
     def __init__(self, config: LLMConfig) -> None:
         self._config = config
-        # Lazy-loaded backend clients
         self._ollama = None
         self._openai_client = None
+        self._hf_client = None
 
     # ------------------------------------------------------------------
     # Prompt building
     # ------------------------------------------------------------------
 
     def build_prompt(self, processed: ProcessedText) -> str:
-        """Substitute processed.content into the configured prompt template."""
         return self._config.prompt_template.replace("{text}", processed.content)
 
     # ------------------------------------------------------------------
@@ -33,39 +29,33 @@ class LLMEngine:
     # ------------------------------------------------------------------
 
     def health_check(self) -> bool:
-        """Return True when the configured backend is reachable."""
         try:
             if self._config.backend == "ollama":
-                ollama = self._get_ollama()
-                ollama.list()
+                self._get_ollama().list()
+            elif self._config.backend == "huggingface":
+                # Just check the client can be created
+                self._get_hf_client()
             else:
-                client = self._get_openai_client()
-                client.models.list()
+                self._get_openai_client().models.list()
             return True
         except Exception:
             return False
 
     # ------------------------------------------------------------------
-    # Query (blocking)
+    # Query
     # ------------------------------------------------------------------
 
     def query(self, prompt: str) -> str:
-        """Send prompt to the backend and return the full response string."""
         return self._with_retry(self._query_once, prompt)
 
     def _query_once(self, prompt: str) -> str:
         if self._config.backend == "ollama":
             return self._ollama_query(prompt)
+        if self._config.backend == "huggingface":
+            return self._hf_query(prompt)
         return self._openai_query(prompt)
 
-    # ------------------------------------------------------------------
-    # Streaming query
-    # ------------------------------------------------------------------
-
     def query_stream(self, prompt: str) -> Iterator[str]:
-        """Yield response tokens; concatenating them equals the full response."""
-        # Collect via retry, then yield tokens.
-        # We buffer the full response so retry logic applies uniformly.
         response = self._with_retry(self._query_once, prompt)
         yield response
 
@@ -83,7 +73,6 @@ class LLMEngine:
                 "temperature": self._config.temperature,
             },
         )
-        # ollama.chat returns an object; handle both attribute and dict access
         if hasattr(response, "message"):
             return response.message.content
         return response["message"]["content"]
@@ -99,15 +88,24 @@ class LLMEngine:
         )
         return completion.choices[0].message.content
 
+    def _hf_query(self, prompt: str) -> str:
+        """Query HuggingFace Inference API using chat completion."""
+        client = self._get_hf_client()
+        response = client.chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            model=self._config.model,
+            max_tokens=self._config.max_tokens,
+            temperature=self._config.temperature,
+        )
+        return response.choices[0].message.content
+
     # ------------------------------------------------------------------
-    # Retry with exponential backoff
+    # Retry
     # ------------------------------------------------------------------
 
     def _with_retry(self, fn, *args):
-        """Call fn(*args), retrying with exponential backoff on connection errors."""
         delay = 1.0
         last_exc: Exception | None = None
-
         for attempt in range(self._config.retry_attempts):
             try:
                 return fn(*args)
@@ -117,9 +115,7 @@ class LLMEngine:
                     time.sleep(delay)
                     delay *= 2
             except Exception:
-                # Non-connection errors should propagate immediately
                 raise
-
         raise LLMUnavailableError(
             f"LLM backend '{self._config.backend}' unreachable after "
             f"{self._config.retry_attempts} attempt(s): {last_exc}"
@@ -130,25 +126,34 @@ class LLMEngine:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def store_api_key(key: str) -> None:
-        """Store the OpenAI API key in the OS keychain."""
-        import keyring as _keyring  # noqa: PLC0415
-        _keyring.set_password("screen-ai-assistant", "openai_api_key", key)
+    def store_api_key(key: str, service: str = "openai_api_key") -> None:
+        import keyring as _keyring
+        _keyring.set_password("screen-ai-assistant", service, key)
+
+    def _get_hf_api_key(self) -> str | None:
+        try:
+            import keyring as _keyring
+            key = _keyring.get_password("screen-ai-assistant", "hf_api_key")
+            if key:
+                return key
+        except Exception:
+            pass
+        return self._config.api_key
 
     # ------------------------------------------------------------------
-    # Lazy backend loaders
+    # Lazy loaders
     # ------------------------------------------------------------------
 
     def _get_ollama(self):
         if self._ollama is None:
-            import ollama as _ollama  # noqa: PLC0415
+            import ollama as _ollama
             self._ollama = _ollama
         return self._ollama
 
     def _get_openai_client(self):
         if self._openai_client is None:
-            import keyring as _keyring  # noqa: PLC0415
-            import openai as _openai  # noqa: PLC0415
+            import keyring as _keyring
+            import openai as _openai
             api_key = _keyring.get_password("screen-ai-assistant", "openai_api_key")
             if api_key is None:
                 api_key = self._config.api_key
@@ -158,3 +163,10 @@ class LLMEngine:
                 timeout=self._config.timeout_seconds,
             )
         return self._openai_client
+
+    def _get_hf_client(self):
+        if self._hf_client is None:
+            from huggingface_hub import InferenceClient
+            api_key = self._get_hf_api_key()
+            self._hf_client = InferenceClient(token=api_key)
+        return self._hf_client
