@@ -1,0 +1,46 @@
+hotkeys:
+  capture_trigger: "ctrl+alt+a"
+  region_select: "ctrl+alt+r"
+  toggle_overlay: "ctrl+alt+h"
+  quit: "ctrl+alt+q"
+
+capture:
+  backend: "mss"
+  monitor_index: 0
+  region: null
+  save_debug_images: false
+
+ocr:
+  backend: "tesseract"
+  languages:
+    - "en"
+  gpu: false
+  confidence_threshold: 0.5
+
+llm:
+  backend: "ollama"
+  model: "phi3:mini"
+  base_url: "http://localhost:11434"
+  api_key: null
+  max_tokens: 512
+  temperature: 0.3
+  timeout_seconds: 10
+  retry_attempts: 3
+  prompt_template: |
+    You are an intelligent assistant.
+    If the input is:
+    - A question → answer clearly
+    - Code → explain or debug
+    - Text → summarize concisely
+
+    Input: {text}
+
+ui:
+  width: 420
+  height: 300
+  opacity: 0.92
+  position_x: 100
+  position_y: 100
+  font_size: 13
+  theme: "dark"
+  always_on_top: true
