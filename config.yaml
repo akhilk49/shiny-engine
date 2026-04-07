@@ -15,31 +15,29 @@ ocr:
   languages:
     - "en"
   gpu: false
-  confidence_threshold: 0.5
+  confidence_threshold: 0.3
 
 llm:
   backend: "huggingface"
   model: "Qwen/Qwen2.5-72B-Instruct"
   base_url: "http://localhost:11434"
   api_key: null
-  max_tokens: 512
-  temperature: 0.3
-  timeout_seconds: 30
-  retry_attempts: 3
+  max_tokens: 250
+  temperature: 0.1
+  timeout_seconds: 15
+  retry_attempts: 2
   prompt_template: |
-    You are an exam assistant. Your ONLY job is to pick the correct answer.
-
-    Look at the question and options below. Respond with ONLY:
-    "Answer: [number] - [option text]"
-    Then one sentence explaining why.
-
-    If it's not a question, respond with a single concise answer.
+    You are an exam assistant. Given the screen content below, respond with:
+    - If MCQ: "Answer: [number/letter] - [option text]" + one sentence why.
+    - If open question: direct concise answer only.
+    - If code: brief explanation.
+    No preamble. Be brief.
 
     {text}
 
 ui:
-  width: 420
-  height: 300
+  width: 460
+  height: 380
   opacity: 0.92
   position_x: 100
   position_y: 100

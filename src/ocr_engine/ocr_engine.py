@@ -126,10 +126,10 @@ class OCREngine:
 
     def _run_tesseract(self, image: Image.Image) -> list[OCRResult]:
         """Run Tesseract backend via pytesseract (lazy import)."""
-        import pytesseract  # noqa: PLC0415 — intentional lazy import
-
-        # Common Windows install path — set if not already on PATH
+        import pytesseract  # noqa: PLC0415
         import os
+
+        # Set Tesseract path on Windows
         if os.name == "nt":
             for candidate in [
                 r"C:\Program Files\Tesseract-OCR\tesseract.exe",
@@ -137,16 +137,24 @@ class OCREngine:
             ]:
                 if os.path.exists(candidate):
                     pytesseract.pytesseract.tesseract_cmd = candidate
-                    # Set tessdata prefix so language files are found
-                    tessdata = os.path.join(os.path.dirname(candidate), "tessdata")
-                    os.environ["TESSDATA_PREFIX"] = tessdata
+                    os.environ["TESSDATA_PREFIX"] = os.path.join(os.path.dirname(candidate), "tessdata")
                     break
+
+        # Preprocess image for better accuracy
+        image = self._preprocess(image)
 
         lang = "+".join(
             "eng" if l == "en" else l
             for l in self._config.languages
         ) if self._config.languages else "eng"
-        data = pytesseract.image_to_data(image, lang=lang, output_type=pytesseract.Output.DICT)
+
+        # PSM 6 = assume uniform block of text (best for screen content)
+        custom_config = r"--oem 3 --psm 6"
+        data = pytesseract.image_to_data(
+            image, lang=lang,
+            config=custom_config,
+            output_type=pytesseract.Output.DICT
+        )
 
         results: list[OCRResult] = []
         n = len(data["text"])
@@ -155,12 +163,31 @@ class OCREngine:
             if not text:
                 continue
             raw_conf = data["conf"][i]
-            # pytesseract returns -1 for non-word entries; treat as 0
             conf = max(0.0, float(raw_conf) / 100.0)
             x, y, w, h = data["left"][i], data["top"][i], data["width"][i], data["height"][i]
             results.append(OCRResult(text=text, confidence=conf, bbox=(x, y, w, h)))
 
         return self._filter_results(results)
+
+    @staticmethod
+    def _preprocess(image: Image.Image) -> Image.Image:
+        """Preprocess image to improve OCR accuracy."""
+        from PIL import ImageFilter, ImageEnhance
+
+        if image.mode not in ("RGB", "L"):
+            image = image.convert("RGB")
+
+        w, h = image.size
+        # Only upscale if genuinely small — skip for large captures (faster)
+        if w < 800:
+            scale = min(3, 1200 // max(w, 1))
+            image = image.resize((w * scale, h * scale), Image.LANCZOS)
+
+        image = image.convert("L")
+        image = ImageEnhance.Contrast(image).enhance(1.8)
+        image = image.filter(ImageFilter.SHARPEN)
+        image = image.point(lambda p: 255 if p > 140 else 0)
+        return image
 
     def _run_tesseract_with_fallback(self, image: Image.Image) -> list[OCRResult]:
         """Attempt Tesseract; raise OCRError if unavailable."""
