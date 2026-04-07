@@ -27,13 +27,15 @@ llm:
   timeout_seconds: 30
   retry_attempts: 3
   prompt_template: |
-    You are an intelligent assistant.
-    If the input is:
-    - A question → answer clearly
-    - Code → explain or debug
-    - Text → summarize concisely
+    You are an exam assistant. Your ONLY job is to pick the correct answer.
 
-    Input: {text}
+    Look at the question and options below. Respond with ONLY:
+    "Answer: [number] - [option text]"
+    Then one sentence explaining why.
+
+    If it's not a question, respond with a single concise answer.
+
+    {text}
 
 ui:
   width: 420

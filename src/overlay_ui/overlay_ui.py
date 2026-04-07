@@ -93,6 +93,7 @@ class OverlayUI(QWidget):
     # Signals for thread-safe text updates
     _set_text_signal: pyqtSignal = pyqtSignal(str)
     _append_text_signal: pyqtSignal = pyqtSignal(str)
+    _set_status_signal: pyqtSignal = pyqtSignal(object)
 
     def __init__(self, config: UIConfig) -> None:
         super().__init__(None, Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
@@ -112,6 +113,7 @@ class OverlayUI(QWidget):
         # Connect signals to slots (safe cross-thread updates)
         self._set_text_signal.connect(self._do_set_text)
         self._append_text_signal.connect(self._do_append_text)
+        self._set_status_signal.connect(self._do_set_status)
 
     # ------------------------------------------------------------------
     # UI construction
@@ -176,16 +178,8 @@ class OverlayUI(QWidget):
         self._append_text_signal.emit(chunk)
 
     def set_status(self, status: StatusIndicator) -> None:
-        """Update the status indicator label (call from any thread via direct call is safe
-        because Qt will queue it if called from a non-GUI thread via the signal mechanism;
-        however set_status is typically called from the GUI thread or pipeline thread.
-        For full safety we update directly — Qt label setText is reentrant-safe when
-        called from the GUI thread, and the pipeline should call this via the controller
-        which uses signals. For simplicity we update directly here."""
-        self._status_label.setText(status.value)
-        color = self._status_colors.get(status, "")
-        if color:
-            self._status_label.setStyleSheet(f"color: {color}; padding: 2px 8px; font-size: 11px;")
+        """Thread-safe: update the status indicator label."""
+        self._set_status_signal.emit(status)
 
     def show_api_warning(self) -> bool:
         """Show a warning that screen data will be sent to a remote API endpoint.
@@ -230,6 +224,13 @@ class OverlayUI(QWidget):
     def _do_append_text(self, chunk: str) -> None:
         current = self._content_label.text()
         self._content_label.setText(current + chunk)
+
+    @pyqtSlot(object)
+    def _do_set_status(self, status: StatusIndicator) -> None:
+        self._status_label.setText(status.value)
+        color = self._status_colors.get(status, "")
+        if color:
+            self._status_label.setStyleSheet(f"color: {color}; padding: 2px 8px; font-size: 11px;")
 
     # ------------------------------------------------------------------
     # Mouse drag (title bar)

@@ -89,15 +89,18 @@ class Controller:
         hotkeys.register(self._config.hotkeys.quit, self._on_quit)
 
     def _on_region_select(self) -> None:
-        """Open RegionSelector in a background thread and apply the result."""
+        """Open RegionSelector, apply the result, then auto-capture."""
 
         def _select():
             region = RegionSelector().select()
             if region.width == 0 or region.height == 0:
                 self._overlay.set_text("Region selection cancelled")
-            else:
-                self._capture.set_region(region)
-                self._overlay.set_text(f"Region set: {region.width}x{region.height}")
+                return
+            self._capture.set_region(region)
+            # Also clear state cache so the new region always triggers LLM
+            self._state.clear()
+            # Auto-capture immediately after region is set
+            self.run_pipeline()
 
         thread = threading.Thread(target=_select, daemon=True)
         thread.start()
