@@ -36,11 +36,11 @@ llm:
     {text}
 
 ui:
-  width: 460
-  height: 380
-  opacity: 0.92
-  position_x: 100
-  position_y: 100
+  width: 340
+  height: 200
+  opacity: 0.95
+  position_x: 20
+  position_y: 20
   font_size: 13
   theme: "dark"
   always_on_top: true

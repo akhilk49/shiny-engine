@@ -14,12 +14,17 @@ from src.models import ConfigError
 
 def main() -> None:
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)  # keep running even if overlay is hidden
 
     try:
         controller = Controller.from_config("config.yaml")
     except ConfigError as exc:
         print(f"Configuration error: {exc}")
         sys.exit(1)
+
+    # Keep strong references so Qt doesn't garbage collect them
+    app._controller = controller
+    app._overlay = controller._overlay
 
     controller._overlay.show()
     controller._hotkeys.start()

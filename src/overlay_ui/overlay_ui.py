@@ -1,29 +1,27 @@
-"""Overlay UI — minimal professional dark card."""
+"""Overlay UI — floating tooltip style."""
 
 from __future__ import annotations
 
 import ctypes
 import re
 
-from PyQt5.QtCore import Qt, QPoint, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import Qt, QPoint, QPropertyAnimation, QEasingCurve, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QScrollArea, QSizePolicy, QMessageBox, QFrame
+    QWidget, QVBoxLayout, QLabel, QScrollArea,
+    QSizePolicy, QMessageBox, QFrame, QGraphicsOpacityEffect
 )
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QPainter, QColor, QPainterPath, QFont
 
 from src.models import UIConfig, StatusIndicator
 
-# Windows constant — excludes window from screen capture
 WDA_EXCLUDEFROMCAPTURE = 0x00000011
 
 
-def _set_capture_excluded(hwnd: int) -> bool:
-    """Make window invisible to screen capture on Windows 10 2004+."""
+def _exclude_from_capture(hwnd: int) -> None:
     try:
-        return bool(ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE))
+        ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE)
     except Exception:
-        return False
+        pass
 
 
 class OverlayUI(QWidget):
@@ -32,17 +30,21 @@ class OverlayUI(QWidget):
     _set_status_signal: pyqtSignal = pyqtSignal(object)
 
     def __init__(self, config: UIConfig) -> None:
-        super().__init__(None, Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+        super().__init__(
+            None,
+            Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint
+        )
         self._config = config
         self._drag_pos: QPoint | None = None
-        self._api_warning_shown: bool = False
-        self._full_text: str = ""
+        self._api_warning_shown = False
+        self._full_text = ""
 
-        self.setObjectName("OverlayRoot")
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setAttribute(Qt.WA_DeleteOnClose, False)  # prevent premature deletion
+        self.setWindowOpacity(config.opacity)
         self.resize(config.width, config.height)
         self.move(config.position_x, config.position_y)
-        self.setWindowOpacity(config.opacity)
-        self.setAttribute(Qt.WA_TranslucentBackground)
 
         self._build_ui()
 
@@ -50,170 +52,134 @@ class OverlayUI(QWidget):
         self._append_text_signal.connect(self._do_append_text)
         self._set_status_signal.connect(self._do_set_status)
 
-        # Exclude from screen capture immediately
-        _set_capture_excluded(int(self.winId()))
-
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(8, 8, 8, 8)  # shadow space
+        outer.setSpacing(0)
 
-        # Card container
+        # Inner card
         self._card = QWidget(self)
         self._card.setObjectName("Card")
         card_layout = QVBoxLayout(self._card)
         card_layout.setContentsMargins(0, 0, 0, 0)
         card_layout.setSpacing(0)
-        root.addWidget(self._card)
+        outer.addWidget(self._card)
 
-        # Header bar
-        header = QWidget()
-        header.setObjectName("Header")
-        header.setFixedHeight(36)
-        h_layout = QHBoxLayout(header)
-        h_layout.setContentsMargins(14, 0, 14, 0)
+        # Top row: dot indicator + status text
+        top = QWidget()
+        top.setObjectName("Top")
+        top.setFixedHeight(28)
+        top_layout = QVBoxLayout(top)
+        top_layout.setContentsMargins(12, 0, 12, 0)
+        top_layout.setAlignment(Qt.AlignVCenter)
 
-        self._title_label = QLabel("AI Assistant")
-        self._title_label.setObjectName("Title")
-
-        self._status_label = QLabel("idle")
+        self._status_label = QLabel("●  ready")
         self._status_label.setObjectName("Status")
-        self._status_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        top_layout.addWidget(self._status_label)
+        card_layout.addWidget(top)
 
-        h_layout.addWidget(self._title_label)
-        h_layout.addWidget(self._status_label)
-        card_layout.addWidget(header)
-
-        # Divider
+        # Thin divider
         div = QFrame()
-        div.setObjectName("Divider")
+        div.setObjectName("Div")
         div.setFrameShape(QFrame.HLine)
         div.setFixedHeight(1)
         card_layout.addWidget(div)
 
-        # Answer section
-        ans_widget = QWidget()
-        ans_widget.setObjectName("AnswerSection")
-        ans_layout = QVBoxLayout(ans_widget)
-        ans_layout.setContentsMargins(14, 10, 14, 10)
-        ans_layout.setSpacing(4)
-
+        # Answer — large, prominent
         self._answer_label = QLabel("")
         self._answer_label.setObjectName("Answer")
         self._answer_label.setWordWrap(True)
         self._answer_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        ans_layout.addWidget(self._answer_label)
-        card_layout.addWidget(ans_widget)
+        self._answer_label.setContentsMargins(12, 10, 12, 8)
+        card_layout.addWidget(self._answer_label)
 
-        # Divider 2
-        div2 = QFrame()
-        div2.setObjectName("Divider")
-        div2.setFrameShape(QFrame.HLine)
-        div2.setFixedHeight(1)
-        card_layout.addWidget(div2)
-        self._div2 = div2
-
-        # Reasoning section
-        self._reason_section = QWidget()
-        reason_layout = QVBoxLayout(self._reason_section)
-        reason_layout.setContentsMargins(14, 8, 14, 10)
-        reason_layout.setSpacing(0)
-
+        # Reasoning — smaller, dimmer, scrollable
         self._reason_label = QLabel("")
         self._reason_label.setObjectName("Reason")
         self._reason_label.setWordWrap(True)
         self._reason_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         self._reason_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        reason_layout.addWidget(self._reason_label)
+        self._reason_label.setContentsMargins(12, 0, 12, 10)
 
-        scroll = QScrollArea()
-        scroll.setWidget(self._reason_section)
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setObjectName("Scroll")
-        card_layout.addWidget(scroll)
+        self._scroll = QScrollArea()
+        self._scroll.setWidget(self._reason_label)
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.NoFrame)
+        self._scroll.setObjectName("Scroll")
+        card_layout.addWidget(self._scroll)
 
-        self._content_label = self._reason_label  # compat alias
+        self._content_label = self._reason_label  # compat
+
         self._apply_styles()
 
     def _apply_styles(self) -> None:
         self._card.setStyleSheet("""
             QWidget#Card {
-                background-color: #111113;
-                border: 1px solid #2a2a2e;
-                border-radius: 10px;
+                background-color: rgba(18, 18, 20, 245);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 12px;
             }
-            QWidget#Header {
-                background-color: #111113;
-                border-radius: 10px 10px 0 0;
-            }
-            QLabel#Title {
-                color: #ffffff;
-                font-size: 12px;
-                font-weight: 600;
+            QWidget#Top {
                 background: transparent;
+                border-radius: 12px 12px 0 0;
             }
             QLabel#Status {
-                color: #555560;
+                color: rgba(255,255,255,0.35);
                 font-size: 10px;
+                font-family: 'Segoe UI', sans-serif;
                 background: transparent;
             }
-            QFrame#Divider {
-                background-color: #1e1e22;
+            QFrame#Div {
+                background-color: rgba(255,255,255,0.06);
                 border: none;
             }
-            QWidget#AnswerSection {
-                background-color: #111113;
-            }
             QLabel#Answer {
-                color: #f0f0f0;
-                font-size: 14px;
+                color: rgba(255,255,255,0.92);
+                font-size: 13px;
                 font-weight: 600;
+                font-family: 'Segoe UI', sans-serif;
                 background: transparent;
-                line-height: 1.4;
-            }
-            QWidget {
-                background-color: #111113;
+                line-height: 1.5;
             }
             QLabel#Reason {
-                color: #888896;
+                color: rgba(255,255,255,0.40);
                 font-size: 11px;
+                font-family: 'Segoe UI', sans-serif;
                 background: transparent;
                 line-height: 1.5;
             }
             QScrollArea#Scroll {
-                background-color: #111113;
+                background: transparent;
                 border: none;
             }
             QScrollBar:vertical {
-                background: #111113;
-                width: 4px;
-                border-radius: 2px;
+                background: transparent;
+                width: 3px;
             }
             QScrollBar::handle:vertical {
-                background: #2a2a2e;
-                border-radius: 2px;
+                background: rgba(255,255,255,0.15);
+                border-radius: 1px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0;
             }
         """)
 
     def _parse_and_display(self, text: str) -> None:
-        text = text.strip()
-        # Strip DeepSeek <think> blocks
         text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
+        if not text:
+            return
 
         answer = ""
         reasoning = ""
 
-        match = re.search(
-            r'(?:^|\n)\s*(?:\*\*)?[Aa]nswer(?:\*\*)?[:\s]+(.+?)(?:\n|$)',
-            text
-        )
-        if match:
-            answer = match.group(1).strip().strip('*').strip()
-            before = text[:match.start()].strip()
-            after = text[match.end():].strip()
+        m = re.search(r'(?:^|\n)\s*(?:\*\*)?[Aa]nswer(?:\*\*)?[:\s]+(.+?)(?:\n|$)', text)
+        if m:
+            answer = m.group(1).strip().strip('*')
+            before = text[:m.start()].strip()
+            after = text[m.end():].strip()
             reasoning = (before + "\n" + after).strip()
-        elif len(text) <= 150:
+        elif len(text) <= 160:
             answer = text
         else:
             parts = re.split(r'(?<=[.!?])\s+', text, maxsplit=1)
@@ -222,8 +188,7 @@ class OverlayUI(QWidget):
 
         self._answer_label.setText(answer or text)
         self._reason_label.setText(reasoning)
-        self._div2.setVisible(bool(reasoning))
-        self._reason_section.setVisible(bool(reasoning))
+        self._scroll.setVisible(bool(reasoning))
 
     # ------------------------------------------------------------------
     # Public API
@@ -231,9 +196,7 @@ class OverlayUI(QWidget):
 
     def show(self) -> None:
         super().show()
-        # Exclude from screen capture (invisible to OBS, Teams, Zoom, etc.)
-        hwnd = int(self.winId())
-        _set_capture_excluded(hwnd)
+        _exclude_from_capture(int(self.winId()))
 
     def hide(self) -> None:
         super().hide()
@@ -249,8 +212,7 @@ class OverlayUI(QWidget):
 
     def show_api_warning(self) -> bool:
         msg = QMessageBox(self)
-        msg.setWindowTitle("API Mode Warning")
-        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("API Mode")
         msg.setText("Screen data will be sent to a remote API. Continue?")
         msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
         msg.setDefaultButton(QMessageBox.Cancel)
@@ -273,8 +235,7 @@ class OverlayUI(QWidget):
         if not text:
             self._answer_label.setText("")
             self._reason_label.setText("")
-            self._div2.setVisible(False)
-            self._reason_section.setVisible(False)
+            self._scroll.setVisible(False)
         else:
             self._parse_and_display(text)
 
@@ -285,28 +246,30 @@ class OverlayUI(QWidget):
 
     @pyqtSlot(object)
     def _do_set_status(self, status: StatusIndicator) -> None:
-        status_map = {
-            StatusIndicator.IDLE: ("idle", "#555560"),
-            StatusIndicator.CAPTURING: ("capturing", "#6b7280"),
-            StatusIndicator.PROCESSING: ("processing", "#6b7280"),
-            StatusIndicator.ERROR: ("error", "#ef4444"),
+        labels = {
+            StatusIndicator.IDLE:       ("●  ready",       "rgba(255,255,255,0.25)"),
+            StatusIndicator.CAPTURING:  ("●  capturing",   "rgba(255,255,255,0.45)"),
+            StatusIndicator.PROCESSING: ("●  thinking",    "rgba(255,255,255,0.55)"),
+            StatusIndicator.ERROR:      ("●  error",       "rgba(239,68,68,0.8)"),
         }
-        text, color = status_map.get(status, ("idle", "#555560"))
+        text, color = labels.get(status, ("●  ready", "rgba(255,255,255,0.25)"))
         self._status_label.setText(text)
         self._status_label.setStyleSheet(
-            f"color: {color}; font-size: 10px; background: transparent;"
+            f"color: {color}; font-size: 10px; font-family: 'Segoe UI'; background: transparent;"
         )
         if status == StatusIndicator.ERROR:
             self._answer_label.setStyleSheet(
-                "color: #ef4444; font-size: 14px; font-weight: 600; background: transparent;"
+                "color: rgba(239,68,68,0.9); font-size: 13px; font-weight: 600; "
+                "font-family: 'Segoe UI'; background: transparent;"
             )
         else:
             self._answer_label.setStyleSheet(
-                "color: #f0f0f0; font-size: 14px; font-weight: 600; background: transparent;"
+                "color: rgba(255,255,255,0.92); font-size: 13px; font-weight: 600; "
+                "font-family: 'Segoe UI'; background: transparent;"
             )
 
     # ------------------------------------------------------------------
-    # Drag
+    # Drag (whole window)
     # ------------------------------------------------------------------
 
     def mousePressEvent(self, event) -> None:
