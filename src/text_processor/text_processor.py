@@ -47,14 +47,16 @@ class TextProcessor:
         # Collapse multiple consecutive newlines into one
         text = re.sub(r"\n{2,}", "\n", text)
 
-        # --- Deduplicate lines (case-insensitive, preserve first occurrence) ---
-        # --- Filter out lines with <= 2 characters ---
+        # --- Deduplicate lines but preserve MCQ option lines ---
+        # --- Filter out lines with <= 2 characters UNLESS they look like option labels ---
         seen: set[str] = set()
         unique_lines: list[str] = []
         for line in text.split("\n"):
             stripped = line.strip()
             normalized = stripped.lower()
-            if normalized not in seen and len(normalized) > 2:
+            # Keep option labels (1., 2., A., B., (1), (A), etc.) even if short
+            is_option_label = bool(re.match(r'^[\(\[]?[a-dA-D1-4][\)\].]?\s', stripped))
+            if normalized not in seen and (len(normalized) > 2 or is_option_label):
                 seen.add(normalized)
                 unique_lines.append(stripped)
 

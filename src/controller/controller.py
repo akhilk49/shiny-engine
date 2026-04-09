@@ -136,6 +136,9 @@ class Controller:
             self._overlay.set_status(StatusIndicator.PROCESSING)
             raw_text = self._ocr.extract(image)
 
+            # Temporarily show OCR output so we can diagnose quality
+            self._overlay.set_text(f"[OCR]\n{raw_text[:400]}")
+
             # Step 3: Text processing
             processed = self._processor.process(raw_text)
 

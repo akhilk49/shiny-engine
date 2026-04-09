@@ -22,17 +22,33 @@ llm:
   model: "Qwen/Qwen2.5-72B-Instruct"
   base_url: "http://localhost:11434"
   api_key: null
-  max_tokens: 250
+  max_tokens: 350
   temperature: 0.1
   timeout_seconds: 15
   retry_attempts: 2
   prompt_template: |
-    You are an exam assistant. Given the screen content below, respond with:
-    - If MCQ: "Answer: [number/letter] - [option text]" + one sentence why.
-    - If open question: direct concise answer only.
-    - If code: brief explanation.
-    No preamble. Be brief.
+    You are analyzing text extracted from a screen via OCR. The text may be slightly garbled.
 
+    STEP 1 - Identify the structure:
+    - Find the main question (usually ends with "?" or is a statement asking something)
+    - Find the options (usually numbered 1-4 or lettered A-D, may appear on separate lines)
+
+    STEP 2 - Answer:
+    IF it's a multiple choice question:
+    Respond in exactly this format (3 lines only):
+    Answer: [number or letter]
+    [Full text of the correct option]
+    Why: [one sentence, max 15 words]
+
+    IF it's an open question (no options):
+    Give a direct answer in 1-2 sentences.
+
+    IF it's code:
+    One line: what it does or what the bug is.
+
+    NEVER list all options. NEVER say "based on the text". NEVER repeat the question.
+
+    OCR TEXT:
     {text}
 
 ui:
