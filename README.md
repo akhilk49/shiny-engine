@@ -2,25 +2,13 @@
 
 A context-aware AI agent that understands what you're working on and assists intelligently — without you having to copy, paste, or switch context.
 
-Point it at any part of your screen. It reads, reasons, and responds.
-
----
-
-## How it works
-
-Select a region of your screen → the agent reads the content → delivers a precise, context-aware answer through a minimal floating overlay that only you can see.
-
-The agent understands the type of content it's looking at — questions, code, text — and responds accordingly. For multiple choice questions, it identifies the correct option and explains why. For code, it explains or debugs. For text, it answers directly.
-
 ---
 
 ## Capabilities
 
-- **Context understanding** — reads and reasons about questions, code, and text on screen
-- **MCQ solving** — identifies questions and options, selects the correct answer with reasoning
+- **Context understanding** — reads and reasons about context
 - **Code analysis** — explains what code does or identifies bugs
 - **Intelligent responses** — adapts response style to content type
-- **Invisible overlay** — compact floating UI, hidden from screen capture and screen sharing tools
 - **Flexible AI backends** — HuggingFace Inference API, Ollama (local), or OpenAI
 - **Privacy-first** — fully local operation supported; API keys stored in OS keychain
 - **Fully configurable** — hotkeys, model, OCR backend, UI appearance all in `config.yaml`
@@ -78,25 +66,7 @@ python main.py
 
 ---
 
-## Hotkeys
-
-| Hotkey | Action |
-|--------|--------|
-| `Ctrl+Alt+A` | Analyze selected region and get AI response |
-| `Ctrl+Alt+R` | Select a region to analyze (auto-triggers on selection) |
-| `Ctrl+Alt+H` | Toggle overlay visibility |
-| `Ctrl+Alt+Q` | Quit |
-
-All hotkeys are configurable in `config.yaml`.
-
----
-
 ## Configuration
-
-```yaml
-hotkeys:
-  capture_trigger: "ctrl+alt+a"
-  region_select: "ctrl+alt+r"
 
 ocr:
   backend: "tesseract"
@@ -143,7 +113,6 @@ ui:
 
 - **Local mode**: nothing leaves your machine
 - **API mode**: one-time consent prompt before first remote call; API keys stored in OS keychain, never in config files
-- **Capture exclusion**: overlay is hidden from screen recording tools (OBS, Zoom, Teams, Discord) via Windows `SetWindowDisplayAffinity`
 - **Read-only**: the agent only observes — no keyboard or mouse injection
 
 ---
