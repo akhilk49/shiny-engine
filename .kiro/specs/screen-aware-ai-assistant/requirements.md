@@ -2,9 +2,9 @@
 
 ## Introduction
 
-This document defines the requirements for the **Agentic AI Assistant** — a Windows desktop application that runs continuously in the background, autonomously captures user-selected screen regions on hotkey trigger, extracts visible text via OCR, and processes it through a local or remote LLM. Responses are displayed in a floating, always-on-top overlay. The system is designed as a fully agentic, privacy-first assistant with an optional hybrid API mode.
+This document defines the requirements for the **Agentic AI Assistant** — a context-aware AI agent that understands what you're working on and assists intelligently. It captures user-selected screen regions on demand, extracts visible text via OCR, and processes it through a local or remote LLM to deliver precise, context-aware responses through a floating overlay. The system supports fully local, privacy-first operation with an optional hybrid API mode.
 
-The architecture follows a linear agentic pipeline: hotkey trigger → screen capture → OCR → text processing → change detection → LLM inference → overlay rendering. All eight components (HotkeyListener, ScreenCapture, OCREngine, TextProcessor, StateManager, LLMEngine, OverlayUI, ConfigManager) are decoupled and communicate asynchronously to meet the end-to-end latency target of under 4 seconds.
+The architecture follows a linear agentic pipeline: hotkey trigger → screen capture → OCR → text processing → change detection → LLM inference → overlay rendering. All eight components are decoupled and communicate asynchronously to meet the end-to-end latency target of under 4 seconds.
 
 ---
 

@@ -2,11 +2,9 @@
 
 ## Overview
 
-An agentic AI-powered assistant that runs continuously in the background on Windows, autonomously capturing user-selected screen regions, extracting visible text via OCR, and processing it through a local or remote LLM. Responses are displayed in a floating, always-on-top overlay with minimal latency. The system is designed for fully local, agentic operation (privacy-first) with an optional hybrid API mode.
+A context-aware AI agent that understands what you're working on and assists intelligently. It captures user-selected screen regions on demand, extracts visible text via OCR, and processes it through a local or remote LLM to deliver precise, context-aware responses through a minimal floating overlay. The system is designed for fully local, privacy-first operation with an optional hybrid API mode.
 
 The architecture follows a linear agentic pipeline: hotkey trigger → screen capture → OCR → text processing → LLM inference → overlay rendering. Each stage is decoupled and runs asynchronously to keep the UI responsive and meet the <2–4 second end-to-end latency target.
-
-The implementation is phased: Phase 1 delivers a working MVP (capture + OCR + LLM + overlay), with subsequent phases adding region selection, hotkey configurability, multi-threading, and vision model support.
 
 ---
 

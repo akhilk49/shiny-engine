@@ -1,26 +1,29 @@
 # Agentic AI Assistant
 
-A local, privacy-first agentic AI assistant for Windows that runs continuously in the background. It autonomously captures any region of your screen, extracts text via OCR, and delivers instant AI-powered answers through a minimal floating overlay — invisible to screen sharing tools.
+A context-aware AI agent that understands what you're working on and assists intelligently — without you having to copy, paste, or switch context.
+
+Point it at any part of your screen. It reads, reasons, and responds.
 
 ---
 
-## What it does
+## How it works
 
-Press a hotkey → draw a region → get an answer. That's it.
+Select a region of your screen → the agent reads the content → delivers a precise, context-aware answer through a minimal floating overlay that only you can see.
 
-The assistant reads whatever is on your screen — questions, code, paragraphs — and responds intelligently through a compact floating popup that only you can see.
+The agent understands the type of content it's looking at — questions, code, text — and responds accordingly. For multiple choice questions, it identifies the correct option and explains why. For code, it explains or debugs. For text, it answers directly.
 
 ---
 
-## Features
+## Capabilities
 
-- **Agentic pipeline** — hotkey → capture → OCR → LLM → overlay, fully automated
-- **Region selection** — drag to select exactly what you want analyzed
-- **Always-on-top overlay** — minimal floating UI, invisible to screen capture and screen sharing
-- **MCQ support** — identifies questions and options, picks the correct answer
-- **Flexible LLM backends** — HuggingFace Inference API, Ollama (local), or OpenAI
-- **Privacy-first** — all processing can run fully local; API keys stored in OS keychain
-- **Configurable** — hotkeys, model, OCR backend, UI size/position all in `config.yaml`
+- **Context understanding** — reads and reasons about questions, code, and text on screen
+- **MCQ solving** — identifies questions and options, selects the correct answer with reasoning
+- **Code analysis** — explains what code does or identifies bugs
+- **Intelligent responses** — adapts response style to content type
+- **Invisible overlay** — compact floating UI, hidden from screen capture and screen sharing tools
+- **Flexible AI backends** — HuggingFace Inference API, Ollama (local), or OpenAI
+- **Privacy-first** — fully local operation supported; API keys stored in OS keychain
+- **Fully configurable** — hotkeys, model, OCR backend, UI appearance all in `config.yaml`
 
 ---
 
@@ -44,7 +47,7 @@ Download and install from: https://github.com/UB-Mannheim/tesseract/wiki
 
 Default install path: `C:\Program Files\Tesseract-OCR\`
 
-### 3. Configure your LLM
+### 3. Configure your AI backend
 
 **Option A — HuggingFace (recommended, no local GPU needed)**
 
@@ -62,7 +65,7 @@ LLMEngine.store_api_key('hf_your_token_here', 'hf_api_key')
 
 ```bash
 ollama serve
-ollama pull phi3:mini   # or any model that fits your RAM
+ollama pull phi3:mini
 ```
 
 Then set `backend: "ollama"` and `model: "phi3:mini"` in `config.yaml`.
@@ -79,8 +82,8 @@ python main.py
 
 | Hotkey | Action |
 |--------|--------|
-| `Ctrl+Alt+A` | Capture screen and get AI response |
-| `Ctrl+Alt+R` | Select a screen region (auto-captures after selection) |
+| `Ctrl+Alt+A` | Analyze selected region and get AI response |
+| `Ctrl+Alt+R` | Select a region to analyze (auto-triggers on selection) |
 | `Ctrl+Alt+H` | Toggle overlay visibility |
 | `Ctrl+Alt+Q` | Quit |
 
@@ -90,19 +93,17 @@ All hotkeys are configurable in `config.yaml`.
 
 ## Configuration
 
-Edit `config.yaml` to customize:
-
 ```yaml
 hotkeys:
   capture_trigger: "ctrl+alt+a"
   region_select: "ctrl+alt+r"
 
 ocr:
-  backend: "tesseract"          # tesseract | easyocr
+  backend: "tesseract"
   confidence_threshold: 0.3
 
 llm:
-  backend: "huggingface"        # huggingface | ollama | openai
+  backend: "huggingface"
   model: "Qwen/Qwen2.5-72B-Instruct"
   max_tokens: 350
   temperature: 0.1
@@ -111,7 +112,7 @@ ui:
   width: 340
   height: 200
   opacity: 0.95
-  theme: "dark"                 # dark | light
+  theme: "dark"
 ```
 
 ---
@@ -125,15 +126,15 @@ ui:
 └── src/
     ├── models.py              # Dataclasses, enums, exceptions
     ├── config_manager/        # YAML config loader
-    ├── screen_capture/        # mss + pyautogui capture
-    ├── ocr_engine/            # Tesseract / EasyOCR
-    ├── text_processor/        # Clean, deduplicate, classify
-    ├── state_manager/         # Change detection cache
+    ├── screen_capture/        # Screen region capture
+    ├── ocr_engine/            # Text extraction (Tesseract / EasyOCR)
+    ├── text_processor/        # Clean, classify, structure
+    ├── state_manager/         # Change detection
     ├── llm_engine/            # HuggingFace / Ollama / OpenAI
-    ├── overlay_ui/            # PyQt5 floating overlay
+    ├── overlay_ui/            # Floating overlay (PyQt5)
     ├── hotkey_listener/       # Global hotkeys
-    ├── region_selector/       # Drag-select overlay
-    └── controller/            # Pipeline orchestration
+    ├── region_selector/       # Drag-select UI
+    └── controller/            # Agent pipeline orchestration
 ```
 
 ---
@@ -141,9 +142,9 @@ ui:
 ## Privacy & Security
 
 - **Local mode**: nothing leaves your machine
-- **API mode**: one-time warning before first remote call; API keys stored in OS keychain, never in config files
-- **Screen capture exclusion**: overlay is hidden from screen recording tools (OBS, Zoom, Teams, etc.) via Windows `SetWindowDisplayAffinity`
-- **Read-only**: the assistant only observes your screen — no keyboard/mouse injection
+- **API mode**: one-time consent prompt before first remote call; API keys stored in OS keychain, never in config files
+- **Capture exclusion**: overlay is hidden from screen recording tools (OBS, Zoom, Teams, Discord) via Windows `SetWindowDisplayAffinity`
+- **Read-only**: the agent only observes — no keyboard or mouse injection
 
 ---
 
@@ -152,4 +153,4 @@ ui:
 - Windows 10 (build 19041+) or Windows 11
 - Python 3.10+
 - Tesseract OCR 5.x
-- 4 GB RAM minimum (8 GB recommended for local models)
+- 4 GB RAM minimum
