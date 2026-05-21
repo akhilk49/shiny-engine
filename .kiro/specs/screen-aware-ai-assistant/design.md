@@ -1,10 +1,10 @@
-# Design Document: Local Screen-Aware AI Assistant
+# Design Document: Agentic AI Assistant
 
 ## Overview
 
-A local AI-powered screen-aware assistant that runs continuously in the background on Windows, capturing user-selected screen regions, extracting visible text via OCR, and processing it through a local or remote LLM. Responses are displayed in a floating, always-on-top overlay with minimal latency. The system is designed for fully local operation (privacy-first) with an optional hybrid API mode.
+An agentic AI-powered assistant that runs continuously in the background on Windows, autonomously capturing user-selected screen regions, extracting visible text via OCR, and processing it through a local or remote LLM. Responses are displayed in a floating, always-on-top overlay with minimal latency. The system is designed for fully local, agentic operation (privacy-first) with an optional hybrid API mode.
 
-The architecture follows a linear pipeline: hotkey trigger → screen capture → OCR → text processing → LLM inference → overlay rendering. Each stage is decoupled and runs asynchronously to keep the UI responsive and meet the <2–4 second end-to-end latency target.
+The architecture follows a linear agentic pipeline: hotkey trigger → screen capture → OCR → text processing → LLM inference → overlay rendering. Each stage is decoupled and runs asynchronously to keep the UI responsive and meet the <2–4 second end-to-end latency target.
 
 The implementation is phased: Phase 1 delivers a working MVP (capture + OCR + LLM + overlay), with subsequent phases adding region selection, hotkey configurability, multi-threading, and vision model support.
 

@@ -2,15 +2,15 @@
 
 ## Introduction
 
-This document defines the requirements for the Local Screen-Aware AI Assistant — a Windows desktop application that runs continuously in the background, captures user-selected screen regions on hotkey trigger, extracts visible text via OCR, and processes it through a local or remote LLM. Responses are displayed in a floating, always-on-top overlay. The system is designed for fully local, privacy-first operation with an optional hybrid API mode.
+This document defines the requirements for the **Agentic AI Assistant** — a Windows desktop application that runs continuously in the background, autonomously captures user-selected screen regions on hotkey trigger, extracts visible text via OCR, and processes it through a local or remote LLM. Responses are displayed in a floating, always-on-top overlay. The system is designed as a fully agentic, privacy-first assistant with an optional hybrid API mode.
 
-The architecture follows a linear pipeline: hotkey trigger → screen capture → OCR → text processing → change detection → LLM inference → overlay rendering. All eight components (HotkeyListener, ScreenCapture, OCREngine, TextProcessor, StateManager, LLMEngine, OverlayUI, ConfigManager) are decoupled and communicate asynchronously to meet the end-to-end latency target of under 4 seconds.
+The architecture follows a linear agentic pipeline: hotkey trigger → screen capture → OCR → text processing → change detection → LLM inference → overlay rendering. All eight components (HotkeyListener, ScreenCapture, OCREngine, TextProcessor, StateManager, LLMEngine, OverlayUI, ConfigManager) are decoupled and communicate asynchronously to meet the end-to-end latency target of under 4 seconds.
 
 ---
 
 ## Glossary
 
-- **System**: The Local Screen-Aware AI Assistant application as a whole
+- **System**: The Agentic AI Assistant application as a whole
 - **HotkeyListener**: The component that registers and listens for global keyboard shortcuts
 - **ScreenCapture**: The component that captures the screen or a user-defined region and returns a PIL Image
 - **OCREngine**: The component that extracts text from a PIL Image using a configured OCR backend
@@ -19,7 +19,7 @@ The architecture follows a linear pipeline: hotkey trigger → screen capture �
 - **LLMEngine**: The component that sends prompts to the configured LLM backend and returns responses
 - **OverlayUI**: The always-on-top floating window that renders LLM responses and status indicators
 - **ConfigManager**: The component that loads and validates configuration from `config.yaml`
-- **Pipeline**: The end-to-end sequence from hotkey trigger through to overlay display
+- **Pipeline**: The end-to-end agentic sequence from hotkey trigger through to overlay display
 - **Region**: A bounding box defined by x, y, width, and height coordinates on the screen
 - **ProcessedText**: The output of TextProcessor containing cleaned content, classification, word count, and empty flag
 - **TextClass**: An enumeration of content types: QUESTION, CODE, PARAGRAPH, MIXED, EMPTY
